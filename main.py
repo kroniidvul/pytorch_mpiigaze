@@ -49,7 +49,7 @@ def str2bool(s):
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        '--arch', type=str, required=True, choices=['lenet', 'resnet_preact', 'vgg16', 'vgg19', 'resnet50'])
+        '--arch', type=str, required=True, choices=['lenet', 'resnet_preact', 'vgg16', 'vgg19', 'resnet50', 'inception'])
     parser.add_argument('--dataset', type=str, required=True)
     parser.add_argument('--test_id', type=int, required=True)
     parser.add_argument('--outdir', type=str, required=True)
@@ -242,7 +242,7 @@ def main():
     logger.info(json.dumps(vars(args), indent=2))
 
     # TensorBoard SummaryWriter
-    writer = SummaryWriter() if args.tensorboard else None
+    writer = SummaryWriter(filename_suffix='MulStepLR') if args.tensorboard else None
 
     # set random seed
     seed = args.seed
