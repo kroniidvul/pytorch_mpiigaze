@@ -17,6 +17,7 @@ import torch.optim
 import torch.utils.data
 import torch.backends.cudnn
 import torchvision.utils
+import torchvision
 try:
     from tensorboardX import SummaryWriter
     is_tensorboard_available = True
@@ -48,7 +49,7 @@ def str2bool(s):
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        '--arch', type=str, required=True, choices=['lenet', 'resnet_preact'])
+        '--arch', type=str, required=True, choices=['lenet', 'resnet_preact', 'vgg16', 'vgg19', 'resnet50'])
     parser.add_argument('--dataset', type=str, required=True)
     parser.add_argument('--test_id', type=int, required=True)
     parser.add_argument('--outdir', type=str, required=True)
@@ -56,13 +57,13 @@ def parse_args():
     parser.add_argument('--num_workers', type=int, default=7)
 
     # optimizer
-    parser.add_argument('--epochs', type=int, default=40)
+    parser.add_argument('--epochs', type=int, default=10)
     parser.add_argument('--batch_size', type=int, default=64)
     parser.add_argument('--base_lr', type=float, default=0.01)
     parser.add_argument('--weight_decay', type=float, default=1e-4)
     parser.add_argument('--momentum', type=float, default=0.9)
     parser.add_argument('--nesterov', type=str2bool, default=True)
-    parser.add_argument('--milestones', type=str, default='[20, 30]')
+    parser.add_argument('--milestones', type=str, default='[20, 30, 40, 50, 65]')
     parser.add_argument('--lr_decay', type=float, default=0.1)
 
     # TensorBoard
@@ -119,7 +120,7 @@ def compute_angle_error(preds, labels):
     angles = pred_x * label_x + pred_y * label_y + pred_z * label_z
     return torch.acos(angles) * 180 / np.pi
 
-
+args = parse_args()
 def train(epoch, model, optimizer, criterion, train_loader, config, writer):
     global global_step
 
@@ -141,7 +142,7 @@ def train(epoch, model, optimizer, criterion, train_loader, config, writer):
         images = images.cuda()
         poses = poses.cuda()
         gazes = gazes.cuda()
-
+        
         optimizer.zero_grad()
 
         outputs = model(images, poses)
@@ -157,7 +158,7 @@ def train(epoch, model, optimizer, criterion, train_loader, config, writer):
         angle_error_meter.update(angle_error.item(), num)
 
         if config['tensorboard']:
-            writer.add_scalar('Train/RunningLoss', loss_meter.val, global_step)
+            writer.add_scalar('Train/RunningLoss.{}'.format(args.test_id), loss_meter.val, global_step)
 
         if step % 100 == 0:
             logger.info('Epoch {} Step {}/{} '
@@ -177,7 +178,7 @@ def train(epoch, model, optimizer, criterion, train_loader, config, writer):
 
     if config['tensorboard']:
         writer.add_scalar('Train/Loss', loss_meter.avg, epoch)
-        writer.add_scalar('Train/AngleError', angle_error_meter.avg, epoch)
+        writer.add_scalar('Train/AngleError{}'.format(args.test_id), angle_error_meter.avg, epoch)
         writer.add_scalar('Train/Time', elapsed, epoch)
 
 
@@ -191,17 +192,25 @@ def test(epoch, model, criterion, test_loader, config, writer):
     start = time.time()
     for step, (images, poses, gazes) in enumerate(test_loader):
         if config['tensorboard_images'] and epoch == 0 and step == 0:
-            image = torchvision.utils.make_grid(
-                images, normalize=True, scale_each=True)
-            writer.add_image('Test/Image', image, epoch)
-
+            img = torchvision.utils.make_grid(
+                        images, normalize=True, scale_each=True)      
+            writer.add_image('Test/Image', img, epoch)
+        
+        #p = nn.ConstantPad2d((164, 164, 188, 188), 0)
+        #images = p(images).resize_(64,1, 224, 224)
+        
         images = images.cuda()
         poses = poses.cuda()
         gazes = gazes.cuda()
+        
+#        print('poses shape: ', poses.shape)
+        #print(poses[0])
+#        print( 'im shape: ' , images.shape)
+        #print(images[0])
 
         with torch.no_grad():
             outputs = model(images, poses)
-        loss = criterion(outputs, gazes)
+            loss = criterion(outputs, gazes)
 
         angle_error = compute_angle_error(outputs, gazes).mean()
 
@@ -218,7 +227,7 @@ def test(epoch, model, criterion, test_loader, config, writer):
     if config['tensorboard']:
         if epoch > 0:
             writer.add_scalar('Test/Loss', loss_meter.avg, epoch)
-            writer.add_scalar('Test/AngleError', angle_error_meter.avg, epoch)
+            writer.add_scalar('Test/AngleError{}'.format(args.test_id), angle_error_meter.avg, epoch)
         writer.add_scalar('Test/Time', elapsed, epoch)
 
     if config['tensorboard_parameters']:
@@ -229,7 +238,7 @@ def test(epoch, model, criterion, test_loader, config, writer):
 
 
 def main():
-    args = parse_args()
+#    args = parse_args()
     logger.info(json.dumps(vars(args), indent=2))
 
     # TensorBoard SummaryWriter
@@ -254,10 +263,17 @@ def main():
     train_loader, test_loader = get_loader(
         args.dataset, args.test_id, args.batch_size, args.num_workers, True)
 
-    # model
     module = importlib.import_module('models.{}'.format(args.arch))
     model = module.Model()
     model.cuda()
+
+    for param in model.resnet:
+        param.require_grad = False
+
+#    for param in model.first_convlayer:
+    model.first_convlayer.require_grad=True
+    model.fc1.require_grad=True
+    model.fc2.require_grad=True
 
     criterion = nn.MSELoss(size_average=True)
 
@@ -268,6 +284,7 @@ def main():
         momentum=args.momentum,
         weight_decay=args.weight_decay,
         nesterov=args.nesterov)
+    
     scheduler = torch.optim.lr_scheduler.MultiStepLR(
         optimizer, milestones=args.milestones, gamma=args.lr_decay)
 
@@ -281,11 +298,10 @@ def main():
     test(0, model, criterion, test_loader, config, writer)
 
     for epoch in range(1, args.epochs + 1):
-        scheduler.step()
-
         train(epoch, model, optimizer, criterion, train_loader, config, writer)
         angle_error = test(epoch, model, criterion, test_loader, config,
                            writer)
+        scheduler.step()
 
         state = OrderedDict([
             ('args', vars(args)),
@@ -293,9 +309,9 @@ def main():
             ('optimizer', optimizer.state_dict()),
             ('epoch', epoch),
             ('angle_error', angle_error),
-        ])
+        ]) 
         model_path = os.path.join(outdir, 'model_state.pth')
-        torch.save(state, model_path)
+        #torch.save(state, model_path)
 
     if args.tensorboard:
         outpath = os.path.join(outdir, 'all_scalars.json')
