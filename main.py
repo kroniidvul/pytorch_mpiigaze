@@ -267,14 +267,12 @@ def main():
     model = module.Model()
     model.cuda()
 
-    for param in model.resnet:
+    for param in model.inception:
         param.require_grad = False
 
-#    for param in model.first_convlayer:
-    model.first_convlayer.require_grad=True
-    model.fc1.require_grad=True
-    model.fc2.require_grad=True
-
+    for param in model.first_convlayer, model.fc1, model.fc2:
+        param.require_grad = True
+        
     criterion = nn.MSELoss(size_average=True)
 
     # optimizer
