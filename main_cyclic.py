@@ -54,7 +54,7 @@ def parse_args():
     parser.add_argument('--test_id', type=int, required=True)
     parser.add_argument('--outdir', type=str, required=True)
     parser.add_argument('--seed', type=int, default=17)
-    parser.add_argument('--num_workers', type=int, default=7)
+    parser.add_argument('--num_workers', type=int, default=9)
 
     # optimizer
     parser.add_argument('--epochs', type=int, default=10)
@@ -274,7 +274,7 @@ def main():
     model = module.Model()
     model.cuda()
     
-    for param in model.resnet:
+    for param in model.inception:
         param.require_grad = False
 
     for param in model.first_convlayer, model.fc1, model.fc2:
@@ -306,7 +306,7 @@ def main():
 #        eps=args.eps)
 
     scheduler = torch.optim.lr_scheduler.CyclicLR(
-        optimizer, base_lr=1e-4, max_lr=0.06)
+        optimizer, base_lr=1e-4, max_lr=0.05)
 
     config = {
         'tensorboard': args.tensorboard,

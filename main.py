@@ -54,16 +54,16 @@ def parse_args():
     parser.add_argument('--test_id', type=int, required=True)
     parser.add_argument('--outdir', type=str, required=True)
     parser.add_argument('--seed', type=int, default=17)
-    parser.add_argument('--num_workers', type=int, default=7)
+    parser.add_argument('--num_workers', type=int, default=9)
 
     # optimizer
     parser.add_argument('--epochs', type=int, default=10)
     parser.add_argument('--batch_size', type=int, default=64)
-    parser.add_argument('--base_lr', type=float, default=0.01)
+    parser.add_argument('--base_lr', type=float, default=0.05)
     parser.add_argument('--weight_decay', type=float, default=1e-4)
     parser.add_argument('--momentum', type=float, default=0.9)
     parser.add_argument('--nesterov', type=str2bool, default=True)
-    parser.add_argument('--milestones', type=str, default='[20, 30, 40, 50, 65]')
+    parser.add_argument('--milestones', type=str, default='[15, 20, 22, 24]')
     parser.add_argument('--lr_decay', type=float, default=0.1)
 
     # TensorBoard

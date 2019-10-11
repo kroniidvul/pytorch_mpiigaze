@@ -49,29 +49,29 @@ def str2bool(s):
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        '--arch', type=str, required=True, choices=['lenet', 'resnet_preact', 'vgg16', 'vgg19', 'vgg19_edit', 'resnet50', 'inception'])
+        '--arch', type=str, required=True, choices=['lenet', 'resnet_preact', 'vgg16', 'vgg19', 'resnet50', 'inception'])
     parser.add_argument('--dataset', type=str, required=True)
     parser.add_argument('--test_id', type=int, required=True)
     parser.add_argument('--outdir', type=str, required=True)
     parser.add_argument('--seed', type=int, default=17)
-    parser.add_argument('--num_workers', type=int, default=7)
+    parser.add_argument('--num_workers', type=int, default=9)
 
     # optimizer
     parser.add_argument('--epochs', type=int, default=10)
     parser.add_argument('--batch_size', type=int, default=64)
-    parser.add_argument('--base_lr', type=float, default=0.04)
+    parser.add_argument('--base_lr', type=float, default=0.05)
     parser.add_argument('--weight_decay', type=float, default=1e-4)
     parser.add_argument('--momentum', type=float, default=0.9)
     parser.add_argument('--nesterov', type=str2bool, default=True)
     parser.add_argument('--milestones', type=str, default='[15, 35]')
     parser.add_argument('--lr_decay', type=float, default=0.1)
     
-    parser.add_argument('--patience', type=int, default=2)
+    parser.add_argument('--patience', type=int, default=1)
     parser.add_argument('--verbose', type=str2bool, default=True)
-    parser.add_argument('--factor', type=float, default=0.5)
-    parser.add_argument('--cooldown', type=int, default=1)
+    parser.add_argument('--factor', type=float, default=0.8)
+    parser.add_argument('--cooldown', type=int, default=0)
     parser.add_argument('--min_lr', type=float, default=1e-8)
-#    parser.add_argument('--eps', type=float, default=1e-4)
+#    parser.add_argument('--eps', type=float, default=1e-8)
 
     # TensorBoard
     parser.add_argument(
@@ -274,7 +274,7 @@ def main():
     model = module.Model()
     model.cuda()
     
-    for param in model.resnet:
+    for param in model.inception:
         param.require_grad = False
 
     for param in model.first_convlayer, model.fc1, model.fc2:
